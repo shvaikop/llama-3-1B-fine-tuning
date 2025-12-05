@@ -1,3 +1,11 @@
+import json
+from pathlib import Path
+from datetime import datetime, timezone
+import os
+
+from huggingface_hub import CommitScheduler, create_repo
+import gradio as gr
+
 import gradio as gr
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, TextIteratorStreamer
@@ -41,6 +49,40 @@ SYSTEM_PROMPTS = {
     "First-Aid LoRA": "You are a certified first aid assistant. Provide clear, concise, and safe medical advice. Do not make up information.",
     "FineTome LoRA": "You are an advanced medical assistant trained on FineTome. Explain your reasoning step-by-step."
 }
+
+HF_WRITE_TOKEN = os.environ.get("HF_WRITE_TOKEN") or os.environ.get("HF_TOKEN")
+
+# Create a dataset repo for feedback (change this!)
+FEEDBACK_REPO_ID = "shvaikop/llama_3_2_1b_chat_feedback"
+FEEDBACK_REPO_TYPE = "dataset"
+
+# Local folder that will be periodically committed
+feedback_dir = Path("feedback_data")
+feedback_dir.mkdir(parents=True, exist_ok=True)
+
+# Use a stable filename (append-only)
+feedback_file = feedback_dir / "feedback.jsonl"
+
+scheduler = None
+if HF_WRITE_TOKEN:
+    # Ensure repo exists
+    create_repo(
+        FEEDBACK_REPO_ID,
+        repo_type=FEEDBACK_REPO_TYPE,
+        exist_ok=True,
+        token=HF_WRITE_TOKEN
+    )
+
+    # Commit every 10 minutes (recommended >= 5 minutes)
+    scheduler = CommitScheduler(
+        repo_id=FEEDBACK_REPO_ID,
+        repo_type=FEEDBACK_REPO_TYPE,
+        folder_path=str(feedback_dir),
+        every=10,
+        token=HF_WRITE_TOKEN
+    )
+else:
+    print("⚠️ WARNING: No HF_WRITE_TOKEN found. Feedback will be stored locally only.")
 
 # -----------------------------------------------------
 # Preload all models + tokenizers (only at startup)
@@ -154,19 +196,116 @@ def chat_stream(message, history, model_name):
         partial_message += new_token
         yield partial_message
 
-# 3. UI
-with gr.Blocks() as demo:  # Removed theme=... to fix the crash
-    gr.Markdown("# 🦙 Llama 3.2 1B (CPU Mode)")
+
+def save_feedback(
+    chatbot_value,
+    model_name,
+    comment,
+    like_data: gr.LikeData
+):
+    """
+    chatbot_value: full chat history value from gr.Chatbot
+    like_data: contains .value (liked message), .index, .liked (bool)
+    """
+    record = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "model_name": model_name,
+        "liked": bool(like_data.liked),
+        "liked_index": like_data.index,
+        "liked_value": like_data.value,
+        "comment": comment or "",
+        "chat_history": chatbot_value,
+    }
+
+    # Append-only write with scheduler lock if available
+    if scheduler is not None:
+        with scheduler.lock:
+            with feedback_file.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return "✅ Feedback saved & will sync to Hugging Face."
+    else:
+        with feedback_file.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        return "✅ Feedback saved locally (no write token for Hub)."
+
+
+
+
+# -----------------------------------------------------
+# 3. UI (with feedback)
+# -----------------------------------------------------
+
+def add_user_message(message, history):
+    history = history or []
+    history.append([message, ""])
+    return "", history
+
+def bot_response(history, model_name):
+    # history is a list of [user, assistant]
+    message = history[-1][0]
+    prev_history = [(u, a) for u, a in history[:-1]]
+
+    partial = ""
+    for chunk in chat_stream(message, prev_history, model_name):
+        partial = chunk
+        history[-1][1] = partial
+        yield history
+
+with gr.Blocks() as demo:
+    gr.Markdown("# 🦙 Llama 3.2 1B (Feedback-Enabled)")
 
     model_selector = gr.Dropdown(
         label="Choose model",
         choices=list(MODEL_VARIANTS.keys()),
-        value="First-Aid LoRA",  # default
+        value="First-Aid LoRA",
     )
 
-    gr.ChatInterface(
-        fn=chat_stream,
-        additional_inputs=[model_selector],
+    chatbot = gr.Chatbot(height=450)
+
+    with gr.Row():
+        msg = gr.Textbox(
+            label="Your message",
+            placeholder="Ask something...",
+            scale=4
+        )
+        send = gr.Button("Send", scale=1)
+
+    with gr.Row():
+        comment = gr.Textbox(
+            label="Optional feedback comment",
+            placeholder="What was good/bad about this answer?"
+        )
+
+    status = gr.Markdown("")
+
+    # Send flow (button or enter)
+    send.click(
+        add_user_message,
+        inputs=[msg, chatbot],
+        outputs=[msg, chatbot],
+        queue=False
+    ).then(
+        bot_response,
+        inputs=[chatbot, model_selector],
+        outputs=[chatbot]
+    )
+
+    msg.submit(
+        add_user_message,
+        inputs=[msg, chatbot],
+        outputs=[msg, chatbot],
+        queue=False
+    ).then(
+        bot_response,
+        inputs=[chatbot, model_selector],
+        outputs=[chatbot]
+    )
+
+    # Like/dislike event on assistant messages
+    chatbot.like(
+        save_feedback,
+        inputs=[chatbot, model_selector, comment],
+        outputs=[status]
     )
 
 if __name__ == "__main__":
