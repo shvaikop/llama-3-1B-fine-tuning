@@ -15,3 +15,9 @@ short_description: Client to fine-tuned Llama 3.2 1B i-am-mushfiq/FirstAidQA
 ---
 
 An example chatbot using [Gradio](https://gradio.app), [`huggingface_hub`](https://huggingface.co/docs/huggingface_hub/v0.22.2/en/index), and the [Hugging Face Inference API](https://huggingface.co/docs/api-inference/index).
+
+TODO:
+1) Add descriptions to jupyter notebooks and move them here, describe each one briefly
+2) Write about fine-tuning on FineTome100K dataset
+3) Write about fine-tuning on First Aid dataset
+
