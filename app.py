@@ -1,18 +1,35 @@
+# import json
+# from pathlib import Path
+# from datetime import datetime, timezone
+# import os
+#
+# from huggingface_hub import CommitScheduler, create_repo
+# import gradio as gr
+#
+# import gradio as gr
+# import torch
+# from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, TextIteratorStreamer
+# from peft import PeftModel, PeftConfig
+# from threading import Thread
+# import os
+# import os
+
+import os
 import json
 from pathlib import Path
 from datetime import datetime, timezone
-import os
-
-from huggingface_hub import CommitScheduler, create_repo
-import gradio as gr
-
-import gradio as gr
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoConfig, TextIteratorStreamer
-from peft import PeftModel, PeftConfig
 from threading import Thread
-import os
-import os
+
+import torch
+import gradio as gr
+from huggingface_hub import CommitScheduler, create_repo
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    AutoConfig,
+    TextIteratorStreamer,
+)
+from peft import PeftModel, PeftConfig
 
 # -----------------------------------------------------
 # Configuration & Secrets
@@ -309,4 +326,4 @@ with gr.Blocks() as demo:
     )
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(share=True)
