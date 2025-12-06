@@ -66,7 +66,11 @@ We also tried rephrasing the questions slightly to see if the the model would be
 #### ✅ **Ground Truth**
 > To ensure you're performing CPR with the correct compression depth, press down at least 2 inches (5 cm) for an adult or 1/3 the depth of the chest for an infant or child. You should feel resistance as the chest compresses and see the chest rise during rescue breaths.
 
-TODO: add rephrased question and answer
+#### **Rephrased Question**
+> How do you make sure you’re pressing to the right depth when performing CPR?
+
+#### **Fine-tuned model answer**
+> To ensure you're pressing to the right depth, you should feel a firm, steady pressure at the chest level. The pressure should be enough to make the chest feel firm, but not so hard that it causes discomfort or pain. If you're unsure, it's better to err on the side of caution and apply less pressure, as excessive pressure can cause injury.
 
 We can observe how different the answers of the base model and the fine-tuned model are.
 The base model replies with general context about the subject of the question.
@@ -137,7 +141,14 @@ We can notice how the length of the answer changes and the fine-tuned answered i
 #### ✅ **Ground Truth**
 > No, do not attempt to push a dislocated finger back into place. This could cause additional damage to the joint and surrounding tissues. Instead, immobilize the finger in its natural position, apply ice to reduce swelling, and seek medical attention immediately for proper care.
 
-TODO: add rephrased question and answer
+#### **Rephrased Question**
+> Is it safe to try to realign a dislocated finger yourself?
+
+#### **Fine-tuned Model Answer**
+> No, it is not safe to try to realign a dislocated finger yourself. Doing so can cause further damage to the joint, blood vessels, and surrounding tissues. Always seek medical help to properly realign the finger and prevent complications.
+
+This is probably a more general question so both the models gave pretty good answers to it.
+We can notice how the length of the answer changes and the fine-tuned answered in a lot more precise way which is very similar to the example answer in the dataset.
 
 The effect of fine-tuning is clear in this example. The fine-tuned model response conveys the message from the dataset accurately while the base model's answer is a lot more general.
 
@@ -164,7 +175,9 @@ Base model:
 ![base_model_recusion_answer](./imgs/base_model_recursion.png)
 
 Fine-tuned model:
+![fine_tuned_model_recusion_answer](./imgs/fine_tuned_model_recursion.png)
 
+Picking an example from the FineTome100K dataset, you can see that it is really hard to see the difference between the base model and the fine tuned model by eye.
 
 
 ### 🧩 UI Gradio Client
